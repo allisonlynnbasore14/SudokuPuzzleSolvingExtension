@@ -32,23 +32,13 @@
 %|73|74|75|76|77|78|79|80|81|
 % -  -  -  -  -  -  -  -  - -
 
-function sol = L1SudokuSolving(orginClues, guesses, iterCount, solution, tempCol, tempBox)
+function sol = L1SudokuSolving(orginClues)
     sizeOfPuzzle = sqrt(length(orginClues));
-    %size of one side of the puzzle i.e. 9
-    rawGuesses =  guesses;
-    %Saves values
-    guesses = arrangeClues(guesses);
-    %Guesses refers to a previous iterations's attempt at solving
-    
-    %Call makeA to find the A contraint matrix
-    A =  produceA(sizeOfPuzzle, rawGuesses, tempCol, tempBox);
-    %sol = A;
-    %return
-    %Make b matrix to solve for x: Ax = b
+    A =  produceA(sizeOfPuzzle, orginClues);
     b = ones(size(A,1),1);
     %Setting up and running minimization
-    m = size(A,1);
-    n = size(A,2);
+     m = size(A,1);
+     n = size(A,2);
     %x = linprog(zeros(1,size(A,2)),A,b)';
     cvx_begin
         variable x(n)
@@ -60,133 +50,137 @@ function sol = L1SudokuSolving(orginClues, guesses, iterCount, solution, tempCol
             A*x == b;
     cvx_end
     
-    
-    
-    %Max number of time it will iterate through the algoritum
-    iterationThresh = 10;
-    if(iterCount >= iterationThresh)
-        %If we are done iterating, exit with the current best solution
-        wraped = wrapper(x, sizeOfPuzzle);
-        Iterations = -1*(4 - iterCount);
-        sol = wraped;
-    else
-        wraped = wrapper(x, sizeOfPuzzle);
-        
-        %wrapper takes the outputs of the CXV tool and makes it into the
-        %puzzle
-        NUMBERWRONG = checker(wraped, solution);
-        if(NUMBERWRONG == 0)
-            % If we have zero wrong, break out of the function and return
-            % our solution
-            Iterations = -1*(4 - iterCount)
-            sol = wraped;
-            return
-        end
-        holder = rawGuesses;
-        x = reshape(x,[9,81]);
-        thres = 0.3;
-        for t = 1:size(x,2)
-            [maxi,ind] = max(abs(x(:,t)));
-            if (maxi >= thres && holder(t) < 0.99)
-                % If the maximum value in the x CVX out is above the
-                % threshold and not already a clue, then it added it to our
-                % solution
-                holder(t) = ind;
-                %holder hold out current solution
-            end
-        end
-        fixedRows = CheckRows(holder, sizeOfPuzzle);
-        fixedColms = CheckColms(holder, sizeOfPuzzle);
-        fixedBoxes = CheckBoxes(holder, sizeOfPuzzle);
-        % The above three function check for the rules of the puzzle.
-        % If there is a violation, the numbers are removed.
-        
-        for u = 1:size( fixedBoxes, 2)
-            if( fixedBoxes(u) == 0 | fixedColms(u)==0 | fixedRows(u)==0 )
-                holder(u) = 0;
-                %Does a cross check across all three functions
-            end
-            if(orginClues(u) ~= 0)
-                %puts the original clues back
-                 holder(u) = orginClues(u);
-            end
-        end
-        
-        NUMBERWRONG = checker(holder, solution);
-        if(NUMBERWRONG < 4)
-            % If we have less than four cells wrong, the puzzle is sent to
-            % the brute force function to get the last few solved
-            if(NUMBERWRONG == 0)
-                Iterations = -1*(4 - iterCount)
-                sol = wraped;
-                return
-            end
-            Iterations = -1*(4 - iterCount)
-            out = bruteSolve(holder);
-            sol = out;
-            return       
-        else
-            iterCount = iterCount + 1;
-        end
-        %CheckedBackeds is called which runs the CVX algoritum of the
-        %puzzle with it fliped upside down
-        %This effective solves a diffrent puzzle with the same solution
-        checkedBackwards = checkBackwards(sizeOfPuzzle, holder, orginClues, solution, tempCol, tempBox);
-        NUMBERWRONG = checker(checkedBackwards, solution);
-        if(NUMBERWRONG < 4)
-            % This is checked after the backwards, left-right, and right-left
-            % functions
-            if(NUMBERWRONG == 0)
-                Iterations = -1*(4 - iterCount)
-                sol = checkedBackwards;
-                return
-            end
-            Iterations = -1*(4 - iterCount)
-            out = bruteSolve(checkedBackwards);
-            sol = out;
-            return
-        end
-        
-        checkedRL = checkRightLeft(sizeOfPuzzle, checkedBackwards, orginClues, solution, tempCol, tempBox);
-        %checkRightLeft is called which runs the CVX algoritum of the
-        %puzzle with it fliped to the right
-        %This effective solves a diffrent puzzle with the same solution
-        NUMBERWRONG = checker(checkedRL, solution);
-        
-        if(NUMBERWRONG < 4)
-            if(NUMBERWRONG == 0)
-                Iterations = -1*(4 - iterCount)
-                sol = checkedRL;
-                return
-            end
-            Iterations = -1*(4 - iterCount)
-            out = bruteSolve(checkedRL);
-            sol = out;
-            return
-        end        
-        
-        checkedLR = checkLeftRight(sizeOfPuzzle, checkedRL, orginClues, solution, tempCol, tempBox);
-        %checkLeftRight is called which runs the CVX algoritum of the
-        %puzzle with it fliped to the right
-        %This effective solves a diffrent puzzle with the same solution
-        NUMBERWRONG = checker(checkedLR, solution);
-        
-        if(NUMBERWRONG < 4)
-            if(NUMBERWRONG == 0)
-                Iterations = -1*(4 - iterCount)
-                sol = checkedLR;
-                return
-            end
-            Iterations = -1*(4 - iterCount)
-            out = bruteSolve(checkedLR);
-            sol = out;
-            return
-        end  
-        % The function's iteration is called
-        Iterations = -1*(4 - iterCount)
-        sol = L1SudokuSolving(orginClues, checkedLR, iterCount, solution, tempCol, tempBox);
-    end
+   wraped = wrapper(x, sizeOfPuzzle);
+   
+   sol = wraped;
 end
+ 
+
+%     %Max number of time it will iterate through the algoritum
+%     iterationThresh = 10;
+%     if(iterCount >= iterationThresh)
+%         %If we are done iterating, exit with the current best solution
+%         wraped = wrapper(x, sizeOfPuzzle);
+%         Iterations = -1*(4 - iterCount);
+%         sol = wraped;
+%     else
+%         wraped = wrapper(x, sizeOfPuzzle);
+%         
+%         %wrapper takes the outputs of the CXV tool and makes it into the
+%         %puzzle
+%         NUMBERWRONG = checker(wraped, solution);
+%         if(NUMBERWRONG == 0)
+%             % If we have zero wrong, break out of the function and return
+%             % our solution
+%             Iterations = -1*(4 - iterCount)
+%             sol = wraped;
+%             return
+%         end
+%         holder = rawGuesses;
+%         x = reshape(x,[9,81]);
+%         thres = 0.3;
+%         for t = 1:size(x,2)
+%             [maxi,ind] = max(abs(x(:,t)));
+%             if (maxi >= thres && holder(t) < 0.99)
+%                 % If the maximum value in the x CVX out is above the
+%                 % threshold and not already a clue, then it added it to our
+%                 % solution
+%                 holder(t) = ind;
+%                 %holder hold out current solution
+%             end
+%         end
+%         fixedRows = CheckRows(holder, sizeOfPuzzle);
+%         fixedColms = CheckColms(holder, sizeOfPuzzle);
+%         fixedBoxes = CheckBoxes(holder, sizeOfPuzzle);
+%         % The above three function check for the rules of the puzzle.
+%         % If there is a violation, the numbers are removed.
+%         
+%         for u = 1:size( fixedBoxes, 2)
+%             if( fixedBoxes(u) == 0 | fixedColms(u)==0 | fixedRows(u)==0 )
+%                 holder(u) = 0;
+%                 %Does a cross check across all three functions
+%             end
+%             if(orginClues(u) ~= 0)
+%                 %puts the original clues back
+%                  holder(u) = orginClues(u);
+%             end
+%         end
+%         
+%         NUMBERWRONG = checker(holder, solution);
+%         if(NUMBERWRONG < 4)
+%             % If we have less than four cells wrong, the puzzle is sent to
+%             % the brute force function to get the last few solved
+%             if(NUMBERWRONG == 0)
+%                 Iterations = -1*(4 - iterCount)
+%                 sol = wraped;
+%                 return
+%             end
+%             Iterations = -1*(4 - iterCount)
+%             out = bruteSolve(holder);
+%             sol = out;
+%             return       
+%         else
+%             iterCount = iterCount + 1;
+%         end
+%         %CheckedBackeds is called which runs the CVX algoritum of the
+%         %puzzle with it fliped upside down
+%         %This effective solves a diffrent puzzle with the same solution
+%         checkedBackwards = checkBackwards(sizeOfPuzzle, holder, orginClues, solution, tempCol, tempBox);
+%         NUMBERWRONG = checker(checkedBackwards, solution);
+%         if(NUMBERWRONG < 4)
+%             % This is checked after the backwards, left-right, and right-left
+%             % functions
+%             if(NUMBERWRONG == 0)
+%                 Iterations = -1*(4 - iterCount)
+%                 sol = checkedBackwards;
+%                 return
+%             end
+%             Iterations = -1*(4 - iterCount)
+%             out = bruteSolve(checkedBackwards);
+%             sol = out;
+%             return
+%         end
+%         
+%         checkedRL = checkRightLeft(sizeOfPuzzle, checkedBackwards, orginClues, solution, tempCol, tempBox);
+%         %checkRightLeft is called which runs the CVX algoritum of the
+%         %puzzle with it fliped to the right
+%         %This effective solves a diffrent puzzle with the same solution
+%         NUMBERWRONG = checker(checkedRL, solution);
+%         
+%         if(NUMBERWRONG < 4)
+%             if(NUMBERWRONG == 0)
+%                 Iterations = -1*(4 - iterCount)
+%                 sol = checkedRL;
+%                 return
+%             end
+%             Iterations = -1*(4 - iterCount)
+%             out = bruteSolve(checkedRL);
+%             sol = out;
+%             return
+%         end        
+%         
+%         checkedLR = checkLeftRight(sizeOfPuzzle, checkedRL, orginClues, solution, tempCol, tempBox);
+%         %checkLeftRight is called which runs the CVX algoritum of the
+%         %puzzle with it fliped to the right
+%         %This effective solves a diffrent puzzle with the same solution
+%         NUMBERWRONG = checker(checkedLR, solution);
+%         
+%         if(NUMBERWRONG < 4)
+%             if(NUMBERWRONG == 0)
+%                 Iterations = -1*(4 - iterCount)
+%                 sol = checkedLR;
+%                 return
+%             end
+%             Iterations = -1*(4 - iterCount)
+%             out = bruteSolve(checkedLR);
+%             sol = out;
+%             return
+%         end  
+%         % The function's iteration is called
+%         Iterations = -1*(4 - iterCount)
+%         sol = L1SudokuSolving(orginClues, checkedLR, iterCount, solution, tempCol, tempBox);
+%     end
+% end
 
 
 function done = checkBackwards(sizeOfPuzzle, clues ,oriClues, solution, tempCol, tempBox)
@@ -491,16 +485,15 @@ function done = bruteSolve(puzz)
 end
 
 
-function A = produceA(sizeOfPuzzle, clues, tempCol, tempBox)
+function A = produceA(sizeOfPuzzle, clues)
     clues = arrangeClues(clues);
     AClue = getAClue(sizeOfPuzzle, clues);
-   
     ACell = getACell(sizeOfPuzzle );
-    
-    ABox = Abox(sizeOfPuzzle);
+    load('ColmFormat.mat');
+    load('BoxesFormat.mat');
     ARow = Arow(sizeOfPuzzle);
-    ACol = Acol(sizeOfPuzzle);
-    A = [ACell ; ARow ;  tempCol;    tempBox; AClue] ;
+    
+    A = [ACell ; ARow ;colms; boxes; AClue] ;
 
 end
 
